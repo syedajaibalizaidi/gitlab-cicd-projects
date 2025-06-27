@@ -1,0 +1,75 @@
+image: alpine:3.15.1
+
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: never
+    - when: always 
+stages:
+  - test
+  - build
+  - deploy
+
+run_unit_tests:
+  image: node:17-alpine3.14
+  tags:
+    - ec2
+    - docker
+    - remote
+  stage: test
+  before_script:
+    - echo "Preparing the test data"
+  script: 
+    - echo "Running unit test for micro service $MICRO_SERVICE ..."
+    - npm version
+  after_script:
+    - echo "Cleaning up the temporary files"
+
+run_lint_tests:
+  tags:
+    - ec2
+    - shell
+    - remote
+  stage: test
+  before_script:
+    - echo "Preparing the test data"
+  script: 
+    - echo "Running lint test..."
+  after_script:
+    - echo "Cleaning up the temporary files"
+
+build_image:
+  tags:
+    - windows
+    - local
+  only:
+    - main
+  stage: build
+  script:
+    - echo "Building the docker image"
+    - echo "Tagging the docker image"
+
+push_image:
+  tags:
+    - windows
+    - local
+  only:
+    - main
+  stage: build
+  needs:
+    - build_image
+  script:
+    - echo "Logging into docker registry..."
+    - echo "Pushing docker image to registry.."
+
+deploy_image:
+  tags:
+    - windows
+    - local
+  only:
+    - main
+  stage: deploy
+  script:
+    - echo "Deploying new docker image to dev $DEPLOYMENT_ENVIRONMENT using the following configuration file - $PROPERTIES_FILE"
+    - cat $PROPERTIES_FILE
